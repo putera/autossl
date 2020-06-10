@@ -234,8 +234,8 @@ if (count($keys->data) > 0)
                 }
                 
                 // Get Expired Date
-                $ncert = $cp->uapi->SSL->show_cert(['friendly_name' => $thedomain])->data;
-                $TG_MSG .= "\n<b>New Expired Date :<b>\n" . date("d/m/Y h:i:s A", $ncert->details->not_after)."\n\n-------------\n\n";
+                $ncert = $cp->uapi->SSL->show_cert(['friendly_name' => strtoupper($thedomain)])->data;
+                $TG_MSG .= "\n<b>New Expired Date :</b>\n" . date("d/m/Y h:i:s A", $ncert->details->not_after)."\n\n";
             }
         }
     }
@@ -244,7 +244,7 @@ if (count($keys->data) > 0)
     // Send telegram to me :P
     if (!empty($TG_MSG))
     {
-        $TG_MSG = "🔰 <b>SSL Certificate Renewal :</b>\n".$TG_MSG;
+        $TG_MSG = "🔰 <b>SSL Certificate Renewal :</b>\n\n".$TG_MSG;
         $bot = new BotApi($TG_API);
         $bot->sendMessage($TG_CHATID, $TG_MSG, 'html', true);
     }
