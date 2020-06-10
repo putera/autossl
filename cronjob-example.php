@@ -12,7 +12,7 @@
 #
 ############################################################################
 
-    Lets Encrypt SSL Automated Renewal Subscription
+    Let's Encrypt SSL Automated Renewal Subscription
 
 ############################################################################
 */
@@ -48,25 +48,23 @@ include_once('./acme.php');
 
 // Extract Domain
 function extract_domain($text) {
-    $text=trim($text,"/");
-    $text=strtolower($text);
-
-    $parts=explode("/",$text);
-    if (substr_count($parts[0],"http")) {
-        $parts[0]="";
+    $text = trim($text, "/");
+    $text = strtolower($text);
+    $parts = explode("/", $text);
+    if (substr_count($parts[0], "http")) {
+        $parts[0] = "";
     }
-    reset ($parts);while (list ($key, $val) = each ($parts)) {
-            if (!empty($val)) { $text=$val; break; }
+    reset($parts);
+    while (list($key, $val) = each($parts)) {
+        if (!empty($val)) { $text = $val; break; }
     }
-
-    $parts=explode(".",$text);
+    $parts = explode(".", $text);
     if (empty($parts[2])) {
         return $parts[0].".".$parts[1];
-        } else {
-        $num_parts=count($parts);
+    } else {
+        $num_parts = count($parts);
         return $parts[$num_parts-2].".".$parts[$num_parts-1];
-        }
-
+    }
 }
 
 // Initiate Instance
@@ -79,11 +77,11 @@ $keys = $cp->uapi->SSL->list_keys();
 
 if (count($keys->data) > 0)
 {
-    // Sort
+    // Sort Private Keys Descending [Z-A]
     usort($keys->data, function($a, $b) {
         return strcasecmp($b->friendly_name, $a->friendly_name);
     });
-    
+
     $TG_MSG = "";
     foreach ($keys->data as $key)
     {
@@ -102,24 +100,20 @@ if (count($keys->data) > 0)
             //==================================
             $days = $ac->getRemainingDays('file://' . $cert_path . $cert_id . '.crt');
             if ($days > 30) continue;
-            
+
             //==================================
             // Request New Certificate
             //==================================
-            $TG_MSG .= "<b>NEW SSL CERTIFICATE REQUEST</b>\nDOMAIN : <code>$thedomain</code>\n";
-            
-            // Get CSR
-            $csr = $cp->uapi->SSL->find_csrs_for_key([
-                'id' => $key->id
-            ])->data[0];
-            $csr_id = $csr->id;
-    
-            // Show CSR
-            $scsr = $cp->uapi->SSL->show_csr([
-                'id' => $csr_id
-            ])->data;
+            $TG_MSG .= "⚙️ Domain : <b>$thedomain</b>\n";
 
-            // Delete TXT Records
+            // Get CSR
+            $csr = $cp->uapi->SSL->find_csrs_for_key(['id' => $key->id])->data[0];
+            $csr_id = $csr->id;
+
+            // Show CSR
+            $scsr = $cp->uapi->SSL->show_csr(['id' => $csr_id])->data;
+
+            // Delete DNS TXT Records
             $_delete_txts = $cp->api2->ZoneEdit->fetchzone_records([
                 "domain" => extract_domain($thedomain),
                 "type" => "TXT",
@@ -135,11 +129,11 @@ if (count($keys->data) > 0)
                     ]);
                 }
             }
-            
+
             // Register/Retrieve Account
             $ac->loadAccountKey('file://'.$account_key);
             $ac->register(true, $scsr->details->emailAddress);
-            
+
             // List out all domains
             $domains = array();
             foreach ($scsr->details->domains as $domain) {
@@ -158,10 +152,10 @@ if (count($keys->data) > 0)
                     "ttl" => "14400",
                     "class" => "IN"
                 ]);
-                
+
                 return function($opts) use ($cp, $thedomain)
                 {
-                    // Delete TXT Records
+                    // Delete DNS TXT Records
                     $txts = $cp->api2->ZoneEdit->fetchzone_records([
                         "domain" => extract_domain($thedomain),
                         "type" => "TXT",
@@ -180,25 +174,23 @@ if (count($keys->data) > 0)
                 };
             };
 
-            // Get Certificate
+            // Get Certificate (Use own CSR)
             $new_cert = $ac->getCertificateChain($scsr->csr, $domains, $handler);
 
             // Delete Old Certificate
-            $cp->uapi->SSL->delete_cert([
-                'friendly_name' => strtoupper($thedomain)
-            ]);
+            $cp->uapi->SSL->delete_cert(['friendly_name' => strtoupper($thedomain)]);
 
             // Upload New Certificate
             $upload_cert = $cp->uapi->SSL->upload_cert([
                 'friendly_name' => strtoupper($thedomain),
                 'crt' => $new_cert
             ])->data[0];
-            $TG_MSG .= "New Certificate ID :\n" . $upload_cert->id."\n\n";
+            $TG_MSG .= "📜 New Cert ID : <b>" . $upload_cert->id."</b>\n\n";
 
             // Install Certificate
             if (!empty($upload_cert))
             {
-                $TG_MSG .= "Installation New SSL Certificate :\n";
+                $TG_MSG .= "<b>Installation SSL :</b>\n";
                 
                 // Fetch Certificate Data
                 $new_cert_data = $cp->uapi->SSL->fetch_key_and_cabundle_for_certificate([
@@ -213,9 +205,9 @@ if (count($keys->data) > 0)
                     'cabundle' => $new_cert_data->cab
                 ]);
                 if (empty($install_main->errors)) {
-                    $TG_MSG .= "- <code>$thedomain</code> : Success !\n";
+                    $TG_MSG .= "- $thedomain : ✅\n";
                 } else {
-                    $TG_MSG .= "- <code>$thedomain</code> : Failed !\n";
+                    $TG_MSG .= "- $thedomain : ❌\n";
                 }
                 
                 // Install All Sub Domains
@@ -233,19 +225,17 @@ if (count($keys->data) > 0)
                                 'cabundle' => $new_cert_data->cab
                             ]);
                             if (empty($install_sd->errors)) {
-                                $TG_MSG .= "- <code>$subdomain</code> : Success !\n";
+                                $TG_MSG .= "- $subdomain : ✅\n";
                             } else {
-                                $TG_MSG .= "- <code>$subdomain</code> : Failed !\n";
+                                $TG_MSG .= "- $subdomain : ❌\n";
                             }
                         }
                     }
                 }
                 
                 // Get Expired Date
-                $ncert = $cp->uapi->SSL->show_cert([
-                    'friendly_name' => $thedomain
-                ])->data;
-                $TG_MSG .= "\nNew Expired Date : <b>" . date("d/m/Y h:i:s A", $ncert->details->not_after)."</b>";
+                $ncert = $cp->uapi->SSL->show_cert(['friendly_name' => $thedomain])->data;
+                $TG_MSG .= "\n<b>New Expired Date :<b>\n" . date("d/m/Y h:i:s A", $ncert->details->not_after)."\n\n-------------\n\n";
             }
         }
     }
@@ -254,6 +244,7 @@ if (count($keys->data) > 0)
     // Send telegram to me :P
     if (!empty($TG_MSG))
     {
+        $TG_MSG = "🔰 <b>SSL Certificate Renewal :</b>\n".$TG_MSG;
         $bot = new BotApi($TG_API);
         $bot->sendMessage($TG_CHATID, $TG_MSG, 'html', true);
     }
