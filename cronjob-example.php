@@ -76,7 +76,7 @@ $ac = new ACMECert();
 
 // Get SSL Private Keys
 $keys = $cp->uapi->SSL->list_keys();
-if (is_array($keys))
+if (is_array($keys->data))
 {
     if (count($keys->data) > 0)
     {
